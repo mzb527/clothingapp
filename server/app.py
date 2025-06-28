@@ -1,6 +1,6 @@
 from flask import Flask, Blueprint, request, jsonify
 from flask_cors import CORS # type: ignore 
-from models import Sku  # SQLAlchemy model
+from .models import Sku  # SQLAlchemy model
 
 app = Flask(__name__)
 CORS(app)
