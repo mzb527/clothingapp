@@ -1,16 +1,30 @@
-import axios from "axios";
+import API from './api';
 
-const API = axios.create({ baseURL: "/api" });
+/**
+ * GET /skus
+ * @param {Object} params
+ * @returns {Promise<{ items: Array, total: number, page: number, per_page: number }>}
+ */
+export function fetchSkus(params) {
+  return API
+    .get('/skus', { params })
+    .then((res) => res.data);
+}
 
-export const fetchSkus = ({ page, per_page, q, sort_by, order, filters }) =>
-  API.get("/skus", { params: { page, per_page, q, sort_by, order, ...filters } })
-     .then(r => r.data);
+export function createSku(data) {
+  return API
+    .post('/skus', data)
+    .then((res) => res.data);
+}
 
-export const createSku = data =>
-  API.post("/skus", data).then(r => r.data);
+export function updateSku(id, data) {
+  return API
+    .put(`/skus/${id}`, data)
+    .then((res) => res.data);
+}
 
-export const updateSku = (id, data) =>
-  API.put(`/skus/${id}`, data).then(r => r.data);
-
-export const deleteSku = id =>
-  API.delete(`/skus/${id}`);
+export function deleteSku(id) {
+  return API
+    .delete(`/skus/${id}`)
+    .then((res) => res.status === 204);
+}
