@@ -1,6 +1,12 @@
-import axios from "axios";
-const API = axios.create({ baseURL: "/api" });
+import API from './api';
 
-export function loginService({ username, password }) {
-  return API.post("/auth/login", { username, password }).then(r => r.data);
+/**
+ * POST /auth/login
+ * @param {{username: string, password: string}}
+ * @returns {Promise<{ access_token: string, user: Object }>}
+ */
+export function loginService(credentials) {
+  return API
+    .post('/auth/login', credentials)
+    .then((res) => res.data);
 }

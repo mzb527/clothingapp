@@ -9,11 +9,26 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem("token"));
 
   useEffect(() => {
+    let interceptor;
     if (token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      // intercept 401/403
+      interceptor = axios.interceptors.response.use(
+        r => r,
+        err => {
+          if ([401, 403].includes(err.response?.status)) {
+            logout();
+          }
+          return Promise.reject(err);
+        }
+      );
     } else {
       delete axios.defaults.headers.common["Authorization"];
     }
+    return () => {
+      if (interceptor) axios.interceptors.response.eject(interceptor);
+    };
+    // eslint-disable-next-line
   }, [token]);
 
   const login = async (username, password) => {
