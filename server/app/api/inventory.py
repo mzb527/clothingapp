@@ -1,60 +1,36 @@
-from functools import wraps
-from flask import jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from .inventory import bp  # existing blueprint
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
+from app.models import Sku, Category, Vendor
 
-# Dummy in-memory SKU store for demonstration
-SKUS = [
-    {"id": 1, "name": "T-Shirt", "stock": 100},
-    {"id": 2, "name": "Jeans", "stock": 50},
-]
-
-def role_required(role):
-    def wrapper(fn):
-        @wraps(fn)
-        def decorator(*args, **kwargs):
-            identity = get_jwt_identity()
-            if identity.get("role") != role:
-                return jsonify(msg="Forbidden"), 403
-            return fn(*args, **kwargs)
-        return decorator
-    return wrapper
+bp = Blueprint("inventory", __name__, url_prefix="/api/skus")
 
 @bp.route("", methods=["GET"])
 @jwt_required()
 def list_skus():
-    return jsonify(SKUS)
+    q            = request.args.get("q", "")
+    page         = request.args.get("page", 1, type=int)
+    per          = request.args.get("per_page", 25, type=int)
+    sort_by      = request.args.get("sort_by", "name")
+    order        = request.args.get("order", "asc")
+    category_id  = request.args.get("category_id", type=int)
+    vendor_id    = request.args.get("vendor_id", type=int)
 
-@bp.route("", methods=["POST"])
-@jwt_required()
-@role_required("manager")
-def create_sku():
-    data = request.get_json()
-    if not data or "name" not in data or "stock" not in data:
-        return jsonify(msg="Missing fields"), 400
-    new_id = max([sku["id"] for sku in SKUS], default=0) + 1
-    sku = {"id": new_id, "name": data["name"], "stock": data["stock"]}
-    SKUS.append(sku)
-    return jsonify(sku), 201
+    query = Sku.query
+    if q:
+        query = query.filter(Sku.name.ilike(f"%{q}%"))
+    if category_id:
+        query = query.filter(Sku.category_id == category_id)
+    if vendor_id:
+        query = query.filter(Sku.vendor_id == vendor_id)
 
-@bp.route("/<int:id>", methods=["PUT"])
-@jwt_required()
-@role_required("manager")
-def update_sku(id):
-    data = request.get_json()
-    for sku in SKUS:
-        if sku["id"] == id:
-            sku.update({k: v for k, v in data.items() if k in ["name", "stock"]})
-            return jsonify(sku)
-    return jsonify(msg="SKU not found"), 404
+    col = getattr(Sku, sort_by, Sku.name)
+    direction = col.desc() if order == "desc" else col.asc()
+    pagination = query.order_by(direction).paginate(page, per, False)
 
-@bp.route("/<int:id>", methods=["DELETE"])
-@jwt_required()
-@role_required("manager")
-def delete_sku(id):
-    global SKUS
-    for sku in SKUS:
-        if sku["id"] == id:
-            SKUS = [s for s in SKUS if s["id"] != id]
-            return jsonify(msg="Deleted")
-    return jsonify(msg="SKU not found"), 404
+    items = [sku.to_dict() for sku in pagination.items]
+    return jsonify({
+        "items": items,
+        "total": pagination.total,
+        "page": pagination.page,
+        "per_page": pagination.per_page
+    })
